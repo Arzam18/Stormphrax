@@ -31,13 +31,14 @@ jobs:
             -o tmp/permute-armv8-4
           touch tmp/permute-armv8-4
 
-      - name: Build Stormphrax (ARMv8.4-A with DotProd + Static C++)
+      - name: Build Stormphrax (ARMv8.4-A with Fully Static C++)
         run: |
           make armv8-4 \
             CC=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang \
             CXX=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang++ \
             EXE=stormphrax-android \
-            EXTRA_LDFLAGS="-static-libstdc++ -static-libsan -fuse-ld=lld"
+            LDFLAGS="-static-libstdc++ -Wl,-Bstatic -lc++ -lc++abi -Wl,-Bdynamic -pthread -fuse-ld=lld" \
+            EXTRA_LDFLAGS="-static-libstdc++"
 
       - name: Verify build output
         run: |
