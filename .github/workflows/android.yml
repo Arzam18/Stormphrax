@@ -22,14 +22,15 @@ jobs:
         run: |
           make download-net
 
-      - name: Patch build.mk for host permute compilation
+      - name: Pre-build host permute utility for x86_64
         run: |
-          # 1. Strip -march=native so Android Clang doesn't fail
-          sed -i 's|-march=native||g' build.mk
-
-          # 2. Force host clang++ for permute and strip target ARM flags from host compile step
-          sed -i 's|\$(CXX) \(.*preprocess/permute.cpp\)|clang++ \1|g' build.mk
-          sed -i 's|-march=armv8.4-a||g' build.mk
+          # Create tmp directory and compile host permute binary natively
+          mkdir -p tmp
+          clang++ -O2 -std=c++20 -I3rdparty/fmt/include \
+            preprocess/permute.cpp 3rdparty/fmt/src/format.cc \
+            -o tmp/permute-armv8-4
+          # Update timestamp so make considers it up-to-date
+          touch tmp/permute-armv8-4
 
       - name: Build Stormphrax (ARMv8.4-A with DotProd)
         run: |
