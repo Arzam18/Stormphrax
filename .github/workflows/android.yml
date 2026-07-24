@@ -1,1 +1,51 @@
-1
+name: Build Stormphrax Android
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Android NDK
+        run: |
+          wget -q https://dl.google.com/android/repository/android-ndk-r26d-linux.zip
+          unzip -q android-ndk-r26d-linux.zip
+          echo "ANDROID_NDK_HOME=$PWD/android-ndk-r26d" >> $GITHUB_ENV
+
+      - name: Download network file
+        run: |
+          make download-net
+
+      - name: Build Stormphrax (ARMv8.4-A with DotProd)
+        run: |
+          make armv8-4 \
+            CC=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang \
+            CXX=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang++ \
+            EXE=stormphrax-android \
+            EXTRA_LDFLAGS="-static-libstdc++"
+
+      - name: Verify build output
+        run: |
+          ls -la stormphrax-android
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stormphrax-android-arm64
+          path: stormphrax-android
+
+      - name: Create prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-build-${{ github.run_number }}
+          name: Stormphrax Android Build ${{ github.run_number }}
+          prerelease: true
+          files: stormphrax-android
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
