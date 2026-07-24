@@ -22,6 +22,11 @@ jobs:
         run: |
           make download-net
 
+      - name: Patch build.mk to use host compiler for permute tool
+        run: |
+          # Replaces $(CXX) with g++ for building the host permute binary
+          sed -i 's|\$(CXX) \(.*preprocess/permute.cpp\)|g++ \1|g' build.mk
+
       - name: Build Stormphrax (ARMv8.4-A with DotProd)
         run: |
           make armv8-4 \
