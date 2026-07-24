@@ -24,10 +24,12 @@ jobs:
 
       - name: Patch build.mk for host permute compilation
         run: |
-          # Replace $(CXX) with g++ specifically in the rule that builds the permute tool
-          sed -i 's|\$(CXX) \(.*permute\)|\g++ -O2 -I3rdparty/fmt/include \1|g' build.mk || true
-          # Remove any leftover -march=native in build.mk
+          # 1. Strip -march=native so Android Clang doesn't fail
           sed -i 's|-march=native||g' build.mk
+
+          # 2. Force host clang++ for permute and strip target ARM flags from host compile step
+          sed -i 's|\$(CXX) \(.*preprocess/permute.cpp\)|clang++ \1|g' build.mk
+          sed -i 's|-march=armv8.4-a||g' build.mk
 
       - name: Build Stormphrax (ARMv8.4-A with DotProd)
         run: |
