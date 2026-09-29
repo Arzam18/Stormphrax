@@ -1,4 +1,4 @@
-name: Build Stormphrax Android
+name: Build Stormphrax Android ARM64 NEON
 
 on:
   workflow_dispatch:
@@ -8,54 +8,83 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Install Android NDK
+        shell: bash
         run: |
-          wget -q https://dl.google.com/android/repository/android-ndk-r26d-linux.zip
-          unzip -q android-ndk-r26d-linux.zip
-          echo "ANDROID_NDK_HOME=$PWD/android-ndk-r26d" >> $GITHUB_ENV
+          set -euo pipefail
+          wget -q https://dl.google.com/android/repository/android-ndk-r27c-linux.zip
+          unzip -q android-ndk-r27c-linux.zip
+          echo "ANDROID_NDK_HOME=$PWD/android-ndk-r27c" >> "$GITHUB_ENV"
+          echo "NDK_BIN=$PWD/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin" >> "$GITHUB_ENV"
 
-      - name: Download network file
+      - name: Download default NNUE network
         run: |
+          set -euo pipefail
           make download-net
+          ls -lh *.nnue
 
-      - name: Pre-compile host permute tool for x86_64
+      # The network permutation tool must run on the GitHub x86_64
+      # runner. It is not part of the Android engine binary.
+      - name: Build host permute tool
+        shell: bash
         run: |
+          set -euo pipefail
           mkdir -p tmp
-          clang++ -O2 -std=c++20 -I3rdparty/fmt/include \
+          clang++ -O2 -std=c++20 \
+            -I3rdparty/fmt/include \
             -DSP_NATIVE -march=native \
-            preprocess/permute.cpp 3rdparty/fmt/src/format.cc \
-            -o tmp/permute-armv8-4
-          touch tmp/permute-armv8-4
+            preprocess/permute.cpp \
+            3rdparty/fmt/src/format.cc \
+            -o tmp/permute-android-neon
+          test -x tmp/permute-android-neon
 
-      - name: Build Stormphrax (ARMv8.4-A with Fully Static C++)
+      # armv8-a is the baseline AArch64 ISA and includes NEON/ASIMD.
+      # Dot-product is optional and is selected automatically when the
+      # compiler target provides __ARM_FEATURE_DOTPROD.
+      - name: Build Stormphrax ARM64 NEON
+        shell: bash
         run: |
-          make armv8-4 \
-            CC=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang \
-            CXX=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang++ \
-            EXE=stormphrax-android \
-            LDFLAGS="-static-libstdc++ -Wl,-Bstatic -lc++ -lc++abi -Wl,-Bdynamic -pthread -fuse-ld=lld" \
-            EXTRA_LDFLAGS="-static-libstdc++"
+          set -euo pipefail
+          make android-neon \
+            CC="$NDK_BIN/aarch64-linux-android24-clang" \
+            CXX="$NDK_BIN/aarch64-linux-android24-clang++" \
+            EXE=stormphrax-android-arm64 \
+            LDFLAGS="-static-libstdc++ -Wl,-Bstatic -lc++ -lc++abi -Wl,-Bdynamic -pthread -fuse-ld=lld"
 
-      - name: Verify build output
+      - name: Verify ARM64 binary
+        shell: bash
         run: |
-          ls -la stormphrax-android
+          set -euo pipefail
+          test -x stormphrax-android-arm64
+          file stormphrax-android-arm64
+          "$NDK_BIN/llvm-readelf" -h stormphrax-android-arm64 | grep -E 'Class:|Machine:'
 
-      - name: Upload artifact
+      - name: UCI smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'uci\nisready\nposition startpos\ngo depth 4\nquit\n' |
+            timeout 30 ./stormphrax-android-arm64
+
+      - name: Upload Android ARM64 NEON artifact
         uses: actions/upload-artifact@v4
         with:
-          name: stormphrax-android-arm64
-          path: stormphrax-android
+          name: stormphrax-android-arm64-neon
+          path: stormphrax-android-arm64
+          if-no-files-found: error
 
       - name: Create prerelease
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: android-build-${{ github.run_number }}
-          name: Stormphrax Android Build ${{ github.run_number }}
+          tag_name: android-neon-${{ github.run_number }}
+          name: Stormphrax Android ARM64 NEON ${{ github.run_number }}
           prerelease: true
-          files: stormphrax-android
+          files: stormphrax-android-arm64
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
