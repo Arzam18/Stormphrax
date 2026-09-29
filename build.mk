@@ -24,12 +24,15 @@ CFLAGS := -std=c11
 CXXFLAGS := -std=c++20 -fconstexpr-steps=2097152
 
 CXXFLAGS_PERMUTE := $(CXXFLAGS) -O1 -DNDEBUG
+PERMUTE_CXX ?= $(CXX)
+PERMUTE_FLAGS :=
 
 CFLAGS_ENGINE := $(CFLAGS)
 CXXFLAGS_ENGINE := $(CXXFLAGS)
 
 # disable -Wunused-function and -Wunused-const-variable for zstd
-FLAGS := -I3rdparty/fmt/include -Wall -Wextra -Wno-sign-compare -Wno-unused-function -Wno-unused-const-variable -DSP_VERSION=$(VERSION)
+FLAGS_COMMON := -I3rdparty/fmt/include -Wall -Wextra -Wno-sign-compare -Wno-unused-function -Wno-unused-const-variable -DSP_VERSION=$(VERSION)
+FLAGS := $(FLAGS_COMMON)
 
 FLAGS_NATIVE := -DSP_NATIVE -march=native
 FLAGS_TUNABLE := -DSP_NATIVE -march=native -DSP_EXTERNAL_TUNE=1
@@ -77,7 +80,14 @@ ifneq ($(DETECTED_OS), Darwin)
 	LDFLAGS += -fuse-ld=lld
 endif
 
-ARCH_DEFINES := $(shell echo | $(CXX) -march=native -E -dM -)
+# Only probe native x86/host features for build types that actually use them.
+# Android cross-compilers reject -march=native.
+ARCH_DEFINES :=
+ifeq ($(TYPE),native)
+    ARCH_DEFINES := $(shell echo | $(CXX) -march=native -E -dM -)
+else ifeq ($(TYPE),tunable)
+    ARCH_DEFINES := $(shell echo | $(CXX) -march=native -E -dM -)
+endif
 
 ifneq ($(findstring __BMI2__, $(ARCH_DEFINES)),)
     ifeq ($(findstring __znver1, $(ARCH_DEFINES)),)
@@ -120,6 +130,8 @@ else ifeq ($(TYPE), zen2)
     ENGINE_FLAGS += $(ENGINE_FLAGS_RELEASE)
 else ifeq ($(TYPE), android-neon)
     FLAGS += $(FLAGS_ARM_NEON)
+    PERMUTE_FLAGS := -DSP_NATIVE -march=native
+    PERMUTE_CXX := clang++
     ENGINE_FLAGS += $(ENGINE_FLAGS_RELEASE)
 else ifeq ($(TYPE), armv8-4)
     FLAGS += $(FLAGS_ARMV8_4)
@@ -131,7 +143,7 @@ else
     $(error Unknown build type)
 endif
 
-CXXFLAGS_PERMUTE += $(FLAGS) $(PERMUTE_FLAGS)
+CXXFLAGS_PERMUTE += $(FLAGS_COMMON) $(PERMUTE_FLAGS)
 
 CFLAGS_ENGINE += $(FLAGS) $(ENGINE_FLAGS)
 CXXFLAGS_ENGINE += $(FLAGS) $(ENGINE_FLAGS)
@@ -158,7 +170,7 @@ EVALFILE_NAME := $(notdir $(EVALFILE))
 .SECONDEXPANSION:
 
 tmp/permute-$(TYPE): tmp $(SOURCES_PERMUTE)
-	$(CXX) $(CXXFLAGS_PERMUTE) $(LDFLAGS) -o tmp/permute-$(TYPE) $(filter-out $<,$^)
+	$(PERMUTE_CXX) $(CXXFLAGS_PERMUTE) $(LDFLAGS) -o tmp/permute-$(TYPE) $(filter-out $<,$^)
 
 tmp/$(EVALFILE_NAME)_permuted_$(TYPE): $(EVALFILE) tmp/permute-$(TYPE)
 	tmp/permute-$(TYPE) $< $@
