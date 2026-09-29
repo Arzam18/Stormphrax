@@ -65,12 +65,10 @@ jobs:
           file stormphrax-android-arm64
           "$NDK_BIN/llvm-readelf" -h stormphrax-android-arm64 | grep -E 'Class:|Machine:'
 
-      - name: UCI smoke test
-        shell: bash
-        run: |
-          set -euo pipefail
-          printf 'uci\nisready\nposition startpos\ngo depth 4\nquit\n' |
-            timeout 30 ./stormphrax-android-arm64
+      # Do not execute the Android binary on the Ubuntu x86_64 runner.
+      # It is an Android AArch64 ELF and must be tested on an Android device
+      # (for example with DroidFish/Termux). The ELF/header checks above verify
+      # that the cross-compiled output has the expected architecture.
 
       - name: Upload Android ARM64 NEON artifact
         uses: actions/upload-artifact@v4
