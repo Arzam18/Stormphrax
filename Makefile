@@ -80,6 +80,10 @@ avx2-bmi2: $(EVALFILE)
 zen2: $(EVALFILE)
 	$(MAKE) -f build.mk TYPE=$@ IS_CALLED_FROM_MAKEFILE=yea
 
+.PHONY: android-neon
+android-neon: $(EVALFILE)
+	$(MAKE) -f build.mk TYPE=$@ IS_CALLED_FROM_MAKEFILE=yea
+
 .PHONY: armv8-4
 armv8-4: $(EVALFILE)
 	$(MAKE) -f build.mk TYPE=$@ IS_CALLED_FROM_MAKEFILE=yea
