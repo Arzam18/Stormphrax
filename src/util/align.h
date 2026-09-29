@@ -34,6 +34,14 @@ namespace stormphrax::util {
 
 #ifdef _WIN32
         return static_cast<T*>(_aligned_malloc(size, alignment));
+#elif defined(__ANDROID__)
+        // Android's libc++ does not provide std::aligned_alloc on all NDK
+        // API levels supported by Stormphrax. Use POSIX allocation instead.
+        void* ptr = nullptr;
+        if (posix_memalign(&ptr, alignment, size) != 0) {
+            return nullptr;
+        }
+        return static_cast<T*>(ptr);
 #else
         return static_cast<T*>(std::aligned_alloc(alignment, size));
 #endif
