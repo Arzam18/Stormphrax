@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -24,46 +24,98 @@ jobs:
           echo "NDK_BIN=$PWD/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin" >> "$GITHUB_ENV"
 
       - name: Download default NNUE network
-        shell: bash
         run: |
           set -euo pipefail
           make download-net
           ls -lh *.nnue
-          sha256sum *.nnue
 
-      - name: Build Android ARM64 NEON
+      # The network permutation tool must run on the GitHub x86_64
+      # runner. It is not part of the Android engine binary.
+      - name: Build host permute tool
         shell: bash
         run: |
           set -euo pipefail
-          make clean
+          mkdir -p tmp
+          clang++ -O2 -std=c++20 \
+            -I3rdparty/fmt/include \
+            -DSP_NATIVE -march=native \
+            preprocess/permute.cpp \
+            3rdparty/fmt/src/format.cc \
+            -o tmp/permute-android-neon
+          test -x tmp/permute-android-neon
+
+      # armv8-a is the baseline AArch64 ISA and includes NEON/ASIMD.
+      # Dot-product is optional and is selected automatically when the
+      # compiler target provides __ARM_FEATURE_DOTPROD.
+      - name: Build Stormphrax ARM64 NEON
+        shell: bash
+        run: |
+          set -euo pipefail
           make android-neon \
             CC="$NDK_BIN/aarch64-linux-android24-clang" \
             CXX="$NDK_BIN/aarch64-linux-android24-clang++" \
-            EXE=stormphrax-android-arm64-neon \
+            EXE=stormphrax-android-arm64 \
             LDFLAGS="-static-libstdc++ -pthread -fuse-ld=lld"
-          test -x stormphrax-android-arm64-neon
-          "$NDK_BIN/llvm-readelf" -h stormphrax-android-arm64-neon | grep -E 'Class:|Machine:'
 
-      - name: Build Android scalar reference
+      - name: Verify ARM64 binary
         shell: bash
         run: |
           set -euo pipefail
-          make clean
+          test -x stormphrax-android-arm64
+          file stormphrax-android-arm64
+          "$NDK_BIN/llvm-readelf" -h stormphrax-android-arm64 | grep -E 'Class:|Machine:'
+
+      # Do not execute the Android binary on the Ubuntu x86_64 runner.
+      # It is an Android AArch64 ELF and must be tested on an Android device
+      # (for example with DroidFish/Termux). The ELF/header checks above verify
+      # that the cross-compiled output has the expected architecture.
+
+      - name: Upload Android ARM64 NEON artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stormphrax-android-arm64-neon
+          path: stormphrax-android-arm64
+          if-no-files-found: error
+
+      - name: Clean Android NEON build outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf build-android-scalar tmp/permute-android-scalar stormphrax-android-arm64-scalar
+
+      - name: Build Stormphrax ARM64 scalar reference
+        shell: bash
+        run: |
+          set -euo pipefail
           make android-scalar \
             CC="$NDK_BIN/aarch64-linux-android24-clang" \
             CXX="$NDK_BIN/aarch64-linux-android24-clang++" \
             EXE=stormphrax-android-arm64-scalar \
             LDFLAGS="-static-libstdc++ -pthread -fuse-ld=lld"
+
+      - name: Verify ARM64 scalar binary
+        shell: bash
+        run: |
+          set -euo pipefail
           test -x stormphrax-android-arm64-scalar
+          file stormphrax-android-arm64-scalar
           "$NDK_BIN/llvm-readelf" -h stormphrax-android-arm64-scalar | grep -E 'Class:|Machine:'
 
-      # Do not execute either Android binary on the x86_64 GitHub runner.
-      # Compare both binaries on the same Android device.
-      - name: Upload Android binaries
+      - name: Upload Android ARM64 scalar artifact
         uses: actions/upload-artifact@v4
         with:
-          name: stormphrax-android-arm64-neon-and-scalar
-          path: |
-            stormphrax-android-arm64-neon
-            stormphrax-android-arm64-scalar
+          name: stormphrax-android-arm64-scalar
+          path: stormphrax-android-arm64-scalar
           if-no-files-found: error
+
+      - name: Create prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-neon-scalar-${{ github.run_number }}
+          name: Stormphrax Android ARM64 NEON + Scalar ${{ github.run_number }}
+          prerelease: true
+          files: |
+            stormphrax-android-arm64
+            stormphrax-android-arm64-scalar
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
