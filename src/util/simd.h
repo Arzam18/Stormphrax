@@ -32,6 +32,8 @@
     #include "simd/avx2.h"
 #elif SP_HAS_NEON
     #include "simd/neon.h"
+#elif defined(SP_SCALAR)
+    #include "simd/scalar.h"
 #else
     #error No supported SIMD extension found
 #endif
@@ -105,7 +107,7 @@ namespace stormphrax::util::simd {
     };
 
     template <typename T>
-    using PackedVector = typename PromotedVectorImpl<T>::Type;
+    using PackedVector = typename PackedVectorImpl<T>::Type;
 
     template <typename T>
     constexpr auto kChunkSize = sizeof(Vector<T>) / sizeof(T);
