@@ -257,10 +257,10 @@ namespace stormphrax::util::simd {
         }
 
         SP_ALWAYS_INLINE_NDEBUG inline VectorI32 dpbusdI32(VectorI32 sum, VectorU8 u, VectorI8 i) {
-            const auto i0 = vreinterpretq_u8_s8(u);
-
     #if SP_HAS_NEON_DOTPROD
-            return vdotq_s32(sum, i0, i);
+            // Stormphrax NNUE uses unsigned u8 activations multiplied by
+            // signed i8 weights. Use Arm's USDOT intrinsic, not SDOT.
+            return vusdotq_s32(sum, u, i);
     #else
             // vdotq_s32 performs unsigned-byte * signed-byte products.
             // Do not reinterpret the unsigned inputs as int8_t: values >=
