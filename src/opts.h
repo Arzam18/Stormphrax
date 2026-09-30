@@ -56,7 +56,7 @@ namespace stormphrax {
             bool softNodes{false};
             i32 softNodeHardLimitMultiplier{1678};
 
-            bool enableWeirdTcs{false};
+            bool enableWeirdTcs{true};
 
             bool minimal{false};
 
