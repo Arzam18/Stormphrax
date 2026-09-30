@@ -203,7 +203,7 @@ namespace stormphrax::util::simd {
 
         inline VectorI8 shiftLeftI8(VectorI8 v, i32 s) {
             VectorI8 r;
-            for (usize i=0;i<16;++i) r[i]=static_cast<i8>(v[i] << s);
+            for (usize i=0;i<16;++i) r[i]=static_cast<i8>(static_cast<i16>(v[i]) << s);
             return r;
         }
         inline VectorI16 shiftLeftI16(VectorI16 v, i32 s) {
