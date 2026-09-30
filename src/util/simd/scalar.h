@@ -289,6 +289,26 @@ namespace stormphrax::util::simd {
             return r;
         }
 
+        // In Stormphrax's L2 NNUE path, the input bytes are loaded as four
+        // packed i32 values and then broadcast with set1<i32>(). On NEON,
+        // the SIMD register is typeless, so this is naturally consumed by
+        // dpbusd as 16 unsigned bytes. The scalar representation has distinct
+        // Vector<i32> and Vector<u8> types, so provide the corresponding
+        // bit-level reinterpretation explicitly.
+        inline VectorI32 dpbusdI32(VectorI32 sum, VectorI32 uPacked, VectorI8 i) {
+            VectorI32 r = sum;
+            for (usize lane = 0; lane < 4; ++lane) {
+                const u32 bits = static_cast<u32>(uPacked[lane]);
+                i32 dot = 0;
+                for (usize j = 0; j < 4; ++j) {
+                    const u8 byte = static_cast<u8>((bits >> (j * 8)) & 0xFFu);
+                    dot += static_cast<i32>(byte) * static_cast<i32>(i[lane * 4 + j]);
+                }
+                r[lane] += dot;
+            }
+            return r;
+        }
+
         inline u32 nonzeroMaskU8(VectorU8 v) {
             u32 mask = 0;
             for (usize lane=0; lane<4; ++lane) {
