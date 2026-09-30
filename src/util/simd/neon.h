@@ -262,10 +262,25 @@ namespace stormphrax::util::simd {
     #if SP_HAS_NEON_DOTPROD
             return vdotq_s32(sum, i0, i);
     #else
-            const auto low = vmull_s8(vget_low_s8(i0), vget_low_s8(i));
-            const auto high = vmull_high_s8(i0, i);
-            const auto p = vpaddq_s16(low, high);
-            return vpadalq_s16(sum, p);
+            // vdotq_s32 performs unsigned-byte * signed-byte products.
+            // Do not reinterpret the unsigned inputs as int8_t: values >=
+            // 128 must remain positive. Build the same four 4-byte dot
+            // products with widening multiplies and pairwise reductions.
+            const auto u16lo = vreinterpretq_s16_u16(vmovl_u8(vget_low_u8(u)));
+            const auto u16hi = vreinterpretq_s16_u16(vmovl_u8(vget_high_u8(u)));
+            const auto i16lo = vmovl_s8(vget_low_s8(i));
+            const auto i16hi = vmovl_s8(vget_high_s8(i));
+
+            const auto prodLo = vmull_s16(vget_low_s16(u16lo), vget_low_s16(i16lo));
+            const auto prodHi = vmull_s16(vget_high_s16(u16lo), vget_high_s16(i16lo));
+            const auto prodLo2 = vmull_s16(vget_low_s16(u16hi), vget_low_s16(i16hi));
+            const auto prodHi2 = vmull_s16(vget_high_s16(u16hi), vget_high_s16(i16hi));
+
+            const auto pairLo = vpaddq_s32(prodLo, prodHi);
+            const auto pairHi = vpaddq_s32(prodLo2, prodHi2);
+            const auto dots = vpaddq_s32(pairLo, pairHi);
+
+            return vaddq_s32(sum, dots);
     #endif
         }
 
