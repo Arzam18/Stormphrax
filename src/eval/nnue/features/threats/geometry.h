@@ -147,6 +147,8 @@ namespace stormphrax::eval::nnue::features::threats::geometry {
     #include "geometry_avx2.h"
 #elif SP_HAS_NEON
     #include "geometry_neon.h"
+#elif defined(SP_SCALAR)
+    #include "geometry_scalar.h"
 #else
     #error unsupported architecture
 #endif
