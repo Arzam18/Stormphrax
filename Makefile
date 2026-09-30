@@ -84,6 +84,10 @@ zen2: $(EVALFILE)
 android-neon: $(EVALFILE)
 	$(MAKE) -f build.mk TYPE=$@ IS_CALLED_FROM_MAKEFILE=yea
 
+.PHONY: android-scalar
+android-scalar: $(EVALFILE)
+	$(MAKE) -f build.mk TYPE=$@ IS_CALLED_FROM_MAKEFILE=yea
+
 .PHONY: armv8-4
 armv8-4: $(EVALFILE)
 	$(MAKE) -f build.mk TYPE=$@ IS_CALLED_FROM_MAKEFILE=yea
