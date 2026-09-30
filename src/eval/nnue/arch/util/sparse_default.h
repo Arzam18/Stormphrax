@@ -103,6 +103,43 @@ namespace stormphrax::eval::nnue::arch::sparse {
         SP_ALWAYS_INLINE_NDEBUG static Vector128U16 add(Vector128U16 a, Vector128U16 b) {
             return vaddq_u16(a, b);
         }
+#elif defined(SP_SCALAR)
+        // Scalar Android reference path. Keep the same 8x16-bit logical
+        // vector width as the NEON/SSE implementations, but do not pull
+        // in any x86 intrinsics.
+        using Vector128U16 = util::simd::ScalarVector<u16, 8>;
+
+        SP_ALWAYS_INLINE_NDEBUG static Vector128U16 zero() {
+            return {};
+        }
+
+        SP_ALWAYS_INLINE_NDEBUG static Vector128U16 set1(u16 v) {
+            Vector128U16 r{};
+            r.lanes.fill(v);
+            return r;
+        }
+
+        SP_ALWAYS_INLINE_NDEBUG static Vector128U16 load(const void* ptr) {
+            assert(util::isAligned<kAlignment>(ptr));
+            Vector128U16 r{};
+            const auto* p = static_cast<const u16*>(ptr);
+            for (usize i = 0; i < 8; ++i)
+                r[i] = p[i];
+            return r;
+        }
+
+        SP_ALWAYS_INLINE_NDEBUG static void ustore(void* ptr, Vector128U16 v) {
+            auto* p = static_cast<u16*>(ptr);
+            for (usize i = 0; i < 8; ++i)
+                p[i] = v[i];
+        }
+
+        SP_ALWAYS_INLINE_NDEBUG static Vector128U16 add(Vector128U16 a, Vector128U16 b) {
+            Vector128U16 r{};
+            for (usize i = 0; i < 8; ++i)
+                r[i] = static_cast<u16>(a[i] + b[i]);
+            return r;
+        }
 #else
         using Vector128U16 = __m128i;
 
