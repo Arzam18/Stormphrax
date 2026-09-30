@@ -257,28 +257,30 @@ namespace stormphrax::util::simd {
         }
 
         SP_ALWAYS_INLINE_NDEBUG inline VectorI32 dpbusdI32(VectorI32 sum, VectorU8 u, VectorI8 i) {
+            const auto i0 = vreinterpretq_u8_s8(u);
+
     #if SP_HAS_NEON_DOTPROD
-            // ARM DOTPROD has exactly the NNUE operation we need:
-            // unsigned u8 input multiplied by signed i8 weights.
-            return vdotq_s32(sum, u, i);
+            return vdotq_s32(sum, i0, i);
     #else
-            // Keep the exact unsigned-u8 * signed-i8 semantics without
-            // requiring ARMv8.2-A+dotprod. A signed reinterpretation of u
-            // would turn every input >= 128 into a negative value and can
-            // materially corrupt NNUE evaluation.
-            const auto u16lo = vmovl_u8(vget_low_u8(u));
-            const auto u16hi = vmovl_u8(vget_high_u8(u));
+            // vdotq_s32 performs unsigned-byte * signed-byte products.
+            // Do not reinterpret the unsigned inputs as int8_t: values >=
+            // 128 must remain positive. Build the same four 4-byte dot
+            // products with widening multiplies and pairwise reductions.
+            const auto u16lo = vreinterpretq_s16_u16(vmovl_u8(vget_low_u8(u)));
+            const auto u16hi = vreinterpretq_s16_u16(vmovl_u8(vget_high_u8(u)));
             const auto i16lo = vmovl_s8(vget_low_s8(i));
             const auto i16hi = vmovl_s8(vget_high_s8(i));
 
-            const auto p0 = vmull_s16(vreinterpret_s16_u16(vget_low_u16(u16lo)), vget_low_s16(i16lo));
-            const auto p1 = vmull_s16(vreinterpret_s16_u16(vget_high_u16(u16lo)), vget_high_s16(i16lo));
-            const auto p2 = vmull_s16(vreinterpret_s16_u16(vget_low_u16(u16hi)), vget_low_s16(i16hi));
-            const auto p3 = vmull_s16(vreinterpret_s16_u16(vget_high_u16(u16hi)), vget_high_s16(i16hi));
+            const auto prodLo = vmull_s16(vget_low_s16(u16lo), vget_low_s16(i16lo));
+            const auto prodHi = vmull_s16(vget_high_s16(u16lo), vget_high_s16(i16lo));
+            const auto prodLo2 = vmull_s16(vget_low_s16(u16hi), vget_low_s16(i16hi));
+            const auto prodHi2 = vmull_s16(vget_high_s16(u16hi), vget_high_s16(i16hi));
 
-            const auto pairLo = vpaddq_s32(p0, p1);
-            const auto pairHi = vpaddq_s32(p2, p3);
-            return vaddq_s32(sum, vpaddq_s32(pairLo, pairHi));
+            const auto pairLo = vpaddq_s32(prodLo, prodHi);
+            const auto pairHi = vpaddq_s32(prodLo2, prodHi2);
+            const auto dots = vpaddq_s32(pairLo, pairHi);
+
+            return vaddq_s32(sum, dots);
     #endif
         }
 
