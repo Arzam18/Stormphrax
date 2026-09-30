@@ -26,6 +26,7 @@ CXXFLAGS := -std=c++20 -fconstexpr-steps=2097152
 CXXFLAGS_PERMUTE := $(CXXFLAGS) -O1 -DNDEBUG
 PERMUTE_CXX ?= $(CXX)
 PERMUTE_FLAGS :=
+PERMUTE_LDFLAGS :=
 
 CFLAGS_ENGINE := $(CFLAGS)
 CXXFLAGS_ENGINE := $(CXXFLAGS)
@@ -40,7 +41,6 @@ FLAGS_AVX512 := -DSP_AVX512 -DSP_FAST_PEXT -march=icelake-client -mtune=znver4
 FLAGS_AVX2_BMI2 := -DSP_AVX2_BMI2 -DSP_FAST_PEXT -march=haswell -mtune=znver3
 FLAGS_ZEN2 := -DSP_ZEN2 -march=bdver4 -mno-tbm -mno-sse4a -mtune=znver2
 FLAGS_ARM_NEON := -DSP_ARM_NEON -march=armv8-a
-FLAGS_ARM_SCALAR := -DSP_SCALAR -march=armv8-a -fno-vectorize -fno-slp-vectorize
 FLAGS_ARMV8_4 := -DSP_ARMV8_4 -march=armv8.4-a
 FLAGS_APPLE_M1 := -DSP_ARMV8_4 -mcpu=apple-m1 --target=arm64-apple-macos11
 
@@ -171,7 +171,7 @@ EVALFILE_NAME := $(notdir $(EVALFILE))
 .SECONDEXPANSION:
 
 tmp/permute-$(TYPE): tmp $(SOURCES_PERMUTE)
-	$(PERMUTE_CXX) $(CXXFLAGS_PERMUTE) $(LDFLAGS) -o tmp/permute-$(TYPE) $(filter-out $<,$^)
+	$(PERMUTE_CXX) $(CXXFLAGS_PERMUTE) $(PERMUTE_LDFLAGS) -o tmp/permute-$(TYPE) $(filter-out $<,$^)
 
 tmp/$(EVALFILE_NAME)_permuted_$(TYPE): $(EVALFILE) tmp/permute-$(TYPE)
 	tmp/permute-$(TYPE) $< $@
