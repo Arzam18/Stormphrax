@@ -88,6 +88,20 @@
     #define SP_HAS_AVX2 0
     #define SP_HAS_NEON 0
     #define SP_HAS_NEON_DOTPROD 0
+#elif defined(SP_HAS_NEON)
+    // Explicit NEON feature selection, matching the known-good Android
+    // compilation model used for Stormphrax 8.0.0.
+    #define SP_HAS_BMI2 0
+    #define SP_HAS_VNNI512 0
+    #define SP_HAS_VBMI2 0
+    #define SP_HAS_VBMI 0
+    #define SP_HAS_AVX512 0
+    #define SP_HAS_VNNI256 0
+    #define SP_HAS_AVX2 0
+    #define SP_HAS_NEON 1
+    #ifndef SP_HAS_NEON_DOTPROD
+        #define SP_HAS_NEON_DOTPROD 0
+    #endif
 #elif defined(SP_ARM_NEON)
     // Generic ARM64/NEON build. NEON is mandatory for AArch64; dot-product
     // support is enabled only when the compiler target provides it.
