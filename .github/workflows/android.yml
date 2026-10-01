@@ -44,9 +44,9 @@ jobs:
             -o tmp/permute-android-neon
           test -x tmp/permute-android-neon
 
-      # armv8-a is the baseline AArch64 ISA and includes NEON/ASIMD.
-      # Dot-product is optional and is selected automatically when the
-      # compiler target provides __ARM_FEATURE_DOTPROD.
+      # Use ARMv8.2-A + DOTPROD explicitly. The Galaxy A16 target supports
+      # ARM64 NEON with dot-product, so Stormphrax's optimized NNUE path is
+      # compiled instead of the generic armv8-a fallback.
       - name: Build Stormphrax ARM64 NEON
         shell: bash
         run: |
