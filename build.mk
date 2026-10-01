@@ -40,7 +40,7 @@ FLAGS_TUNABLE := -DSP_NATIVE -march=native -DSP_EXTERNAL_TUNE=1
 FLAGS_AVX512 := -DSP_AVX512 -DSP_FAST_PEXT -march=icelake-client -mtune=znver4
 FLAGS_AVX2_BMI2 := -DSP_AVX2_BMI2 -DSP_FAST_PEXT -march=haswell -mtune=znver3
 FLAGS_ZEN2 := -DSP_ZEN2 -march=bdver4 -mno-tbm -mno-sse4a -mtune=znver2
-FLAGS_ARM_NEON := -DSP_ARM_NEON -march=armv8-a
+FLAGS_ARM_NEON := -DSP_ARM_NEON -march=armv8.2-a+dotprod
 FLAGS_ARM_SCALAR := -DSP_SCALAR -march=armv8-a
 FLAGS_ARMV8_4 := -DSP_ARMV8_4 -march=armv8.4-a
 FLAGS_APPLE_M1 := -DSP_ARMV8_4 -mcpu=apple-m1 --target=arm64-apple-macos11
