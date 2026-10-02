@@ -32,6 +32,8 @@
     #include "simd/avx2.h"
 #elif SP_HAS_NEON
     #include "simd/neon.h"
+#elif defined(SP_SCALAR)
+    #include "simd/scalar.h"
 #else
     #error No supported SIMD extension found
 #endif
@@ -319,10 +321,10 @@ namespace stormphrax::util::simd {
     }
 
 #if defined(SP_SCALAR)
-    // Scalar reference: multilayer.h packs 16 u8 activations into four i32
-    // values and explicitly calls dpbusd<i32>(). On real SIMD the register
-    // is typeless, so the second argument is consumed as bytes. Preserve
-    // that bit-level representation in the scalar backend.
+    // The NEON implementation treats the second operand as a typeless
+    // 128-bit register. In the scalar backend Vector<i32> and Vector<u8>
+    // are distinct C++ types, so explicitly preserve the same 16-byte
+    // bit-level interpretation used by the NNUE L2 dot-product path.
     template <typename T>
     SP_ALWAYS_INLINE_NDEBUG inline auto dpbusd(Vector<T> sum, Vector<i32> u, Vector<i8> i) = delete;
     template <>
