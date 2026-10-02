@@ -257,25 +257,15 @@ namespace stormphrax::util::simd {
         }
 
         SP_ALWAYS_INLINE_NDEBUG inline VectorI32 dpbusdI32(VectorI32 sum, VectorU8 u, VectorI8 i) {
-            // Exact u8 x i8 dot products without relying on SDOT/UDOT semantics.
-            // Four output lanes each contain the sum of four byte products.
-            const auto u16lo = vmovl_u8(vget_low_u8(u));
-            const auto u16hi = vmovl_u8(vget_high_u8(u));
-            const auto i16lo = vmovl_s8(vget_low_s8(i));
-            const auto i16hi = vmovl_s8(vget_high_s8(i));
-
-            const auto p0 = vmull_s16(vreinterpret_s16_u16(vget_low_u16(u16lo)),
-                                      vget_low_s16(i16lo));
-            const auto p1 = vmull_s16(vreinterpret_s16_u16(vget_high_u16(u16lo)),
-                                      vget_high_s16(i16lo));
-            const auto p2 = vmull_s16(vreinterpret_s16_u16(vget_low_u16(u16hi)),
-                                      vget_low_s16(i16hi));
-            const auto p3 = vmull_s16(vreinterpret_s16_u16(vget_high_u16(u16hi)),
-                                      vget_high_s16(i16hi));
-
-            const auto pair0 = vpaddq_s32(p0, p1);
-            const auto pair1 = vpaddq_s32(p2, p3);
-            return vaddq_s32(sum, vcombine_s32(vget_low_s32(pair0), vget_low_s32(pair1)));
+            const auto i0 = vreinterpretq_u8_s8(u);
+    #if SP_HAS_NEON_DOTPROD
+            return vdotq_s32(sum, i0, i);
+    #else
+            const auto low = vmull_s8(vget_low_s8(i0), vget_low_s8(i));
+            const auto high = vmull_high_s8(i0, i);
+            const auto p = vpaddq_s16(low, high);
+            return vpadalq_s16(sum, p);
+    #endif
         }
 
         SP_ALWAYS_INLINE_NDEBUG inline u32 nonzeroMaskU8(VectorU8 v) {

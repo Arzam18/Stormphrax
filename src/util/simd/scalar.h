@@ -203,12 +203,18 @@ namespace stormphrax::util::simd {
 
         inline VectorI8 shiftLeftI8(VectorI8 v, i32 s) {
             VectorI8 r;
-            for (usize i=0;i<16;++i) r[i]=static_cast<i8>(v[i] << s);
+            for (usize i = 0; i < 16; ++i) {
+                const u8 bits = static_cast<u8>(v[i]);
+                r[i] = static_cast<i8>(static_cast<u8>(bits << s));
+            }
             return r;
         }
         inline VectorI16 shiftLeftI16(VectorI16 v, i32 s) {
             VectorI16 r;
-            for (usize i=0;i<8;++i) r[i]=static_cast<i16>(static_cast<i64>(v[i]) << s);
+            for (usize i = 0; i < 8; ++i) {
+                const u16 bits = static_cast<u16>(v[i]);
+                r[i] = static_cast<i16>(static_cast<u16>(bits << s));
+            }
             return r;
         }
         inline VectorI16 shiftRightI16(VectorI16 v, i32 s) {
@@ -218,7 +224,10 @@ namespace stormphrax::util::simd {
         }
         inline VectorI32 shiftLeftI32(VectorI32 v, i32 s) {
             VectorI32 r;
-            for (usize i=0;i<4;++i) r[i]=static_cast<i32>(static_cast<i64>(v[i]) << s);
+            for (usize i = 0; i < 4; ++i) {
+                const u32 bits = static_cast<u32>(v[i]);
+                r[i] = static_cast<i32>(static_cast<u32>(bits << s));
+            }
             return r;
         }
         inline VectorI32 shiftRightI32(VectorI32 v, i32 s) {
