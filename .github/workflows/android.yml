@@ -1,10 +1,10 @@
-name: Build Stormphrax 8.0.3 Android ARM64 NEON - human SIMD reference
+name: Build Stormphrax Android ARM64 NEON + Scalar
 
 on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -20,120 +20,102 @@ jobs:
           set -euo pipefail
           wget -q https://dl.google.com/android/repository/android-ndk-r27c-linux.zip
           unzip -q android-ndk-r27c-linux.zip
+          echo "ANDROID_NDK_HOME=$PWD/android-ndk-r27c" >> "$GITHUB_ENV"
           echo "NDK_BIN=$PWD/android-ndk-r27c/toolchains/llvm/prebuilt/linux-x86_64/bin" >> "$GITHUB_ENV"
 
-      - name: Download 8.0.3 default NNUE
-        shell: bash
+      - name: Download default NNUE network
         run: |
           set -euo pipefail
           make download-net
           ls -lh *.nnue
 
-      - name: Build host network permutation tool
+      # The network permutation tool must run on the GitHub x86_64
+      # runner. It is not part of the Android engine binary.
+      - name: Build host permute tool
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p tmp
-          clang++ -O1 -DNDEBUG -std=c++20 \
+          clang++ -O2 -std=c++20 \
             -I3rdparty/fmt/include \
             -DSP_NATIVE -march=native \
             preprocess/permute.cpp \
             3rdparty/fmt/src/format.cc \
-            -o tmp/permute-native
-          test -x tmp/permute-native
+            -o tmp/permute-android-neon
+          test -x tmp/permute-android-neon
 
-      - name: Permute 8.0.3 NNUE
+      # armv8-a is the baseline AArch64 ISA and includes NEON/ASIMD.
+      # Dot-product is optional and is selected automatically when the
+      # compiler target provides __ARM_FEATURE_DOTPROD.
+      - name: Build Stormphrax ARM64 NEON — unsigned dot diagnostic
         shell: bash
         run: |
           set -euo pipefail
-          NET="$(cat network.txt)"
-          ./tmp/permute-native "${NET}.nnue" "${NET}.nnue_permuted_native"
-          ls -lh "${NET}.nnue_permuted_native"
+          make android-neon \
+            CC="$NDK_BIN/aarch64-linux-android24-clang" \
+            CXX="$NDK_BIN/aarch64-linux-android24-clang++" \
+            EXE=stormphrax-android-arm64 \
+            LDFLAGS="-static-libstdc++ -pthread -fuse-ld=lld"
 
-      - name: Generate human-style single translation unit
+      - name: Verify ARM64 binary
         shell: bash
         run: |
           set -euo pipefail
-          cat > glob.cpp <<'GLOB'
-          #include "./src/main.cpp"
-          #include "./src/uci/uci.cpp"
-          #include "./src/core.cpp"
-          #include "./src/util/split.cpp"
-          #include "./src/move.cpp"
-          #include "./src/position.cpp"
-          #include "./src/search.cpp"
-          #include "./src/movegen.cpp"
-          #include "./src/util/timer.cpp"
-          #include "./src/ttable.cpp"
-          #include "./src/eval/nnue.cpp"
-          #include "./src/perft.cpp"
-          #include "./src/bench.cpp"
-          #include "./src/tunable.cpp"
-          #include "./src/opts.cpp"
-          #include "./3rdparty/pyrrhic/tbprobe.cpp"
-          #include "./src/datagen/datagen.cpp"
-          #include "./src/wdl.cpp"
-          #include "./src/cuckoo.cpp"
-          #include "./src/datagen/marlinformat.cpp"
-          #include "./src/datagen/viriformat.cpp"
-          #include "./src/tb.cpp"
-          #include "./3rdparty/zstd/zstddeclib.c"
-          #include "./src/eval/nnue/loader.cpp"
-          #include "./src/datagen/fen.cpp"
-          #include "./src/util/ctrlc.cpp"
-          #include "./src/stats.cpp"
-          #include "./3rdparty/fmt/src/format.cc"
-          #include "./src/thread.cpp"
-          #include "./src/limit.cpp"
-          #include "./src/util/numa/numa_libnuma.cpp"
-          #include "./src/util/numa/numa_fallback.cpp"
-          #include "./src/eval/nnue/features/threats.cpp"
-          #include "./src/attacks/bmi2/attacks.cpp"
-          #include "./src/attacks/black_magic/attacks.cpp"
-          #include "./src/correction.cpp"
-          #include "./src/movepick.cpp"
-          #include "./src/pv.cpp"
-          #include "./src/see.cpp"
-          #include "./src/eval/nnue_state.cpp"
-          #include "./src/eval/eval.cpp"
-          #include "./src/uci/option.cpp"
-          GLOB
-
-      - name: Build Android ARM64 NEON using the human recipe
-        shell: bash
-        run: |
-          set -euo pipefail
-          NET="$(cat network.txt)"
-          "$NDK_BIN/aarch64-linux-android21-clang++" \
-            -o stormphrax-android-arm64 \
-            glob.cpp \
-            -Isrc -I3rdparty/fmt/include \
-            -march=armv8.2-a+dotprod+fp+simd+crypto+crc \
-            -ftree-vectorize -fexperimental-library \
-            -lm -latomic -m64 -stdlib=libc++ -fPIE -static-libstdc++ \
-            -pie -std=c++20 -flto=auto -Ofast -pipe \
-            -finline-functions -Wno-deprecated-declarations \
-            -Wno-macro-redefined -Wno-deprecated \
-            "-DSP_NETWORK_FILE=\"${NET}.nnue_permuted_native\"" \
-            -DSP_VERSION=8.0.3 \
-            -fopenmp-simd -pthread \
-            -Wno-nan-infinity-disabled \
-            -fno-rtti -fstrict-aliasing -fomit-frame-pointer \
-            -s -fuse-ld=lld -MMD -MP -ffast-math \
-            -funroll-loops -funsafe-math-optimizations \
-            -DSP_HAS_NEON -DSP_HAS_NEON_DOTPROD
           test -x stormphrax-android-arm64
-
-      - name: Verify ELF
-        shell: bash
-        run: |
-          set -euo pipefail
           file stormphrax-android-arm64
           "$NDK_BIN/llvm-readelf" -h stormphrax-android-arm64 | grep -E 'Class:|Machine:'
 
-      - name: Upload artifact
+      # Do not execute the Android binary on the Ubuntu x86_64 runner.
+      # It is an Android AArch64 ELF and must be tested on an Android device
+      # (for example with DroidFish/Termux). The ELF/header checks above verify
+      # that the cross-compiled output has the expected architecture.
+
+      - name: Upload Android ARM64 NEON artifact
         uses: actions/upload-artifact@v4
         with:
-          name: stormphrax-8.0.3-android-arm64-neon-human-simd-reference
+          name: stormphrax-android-arm64-neon
           path: stormphrax-android-arm64
           if-no-files-found: error
+
+      - name: Clean Android NEON build outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf build-android-scalar tmp/permute-android-scalar stormphrax-android-arm64-scalar
+
+      - name: Build Stormphrax ARM64 scalar reference
+        shell: bash
+        run: |
+          set -euo pipefail
+          make android-scalar \
+            CC="$NDK_BIN/aarch64-linux-android24-clang" \
+            CXX="$NDK_BIN/aarch64-linux-android24-clang++" \
+            EXE=stormphrax-android-arm64-scalar \
+            LDFLAGS="-static-libstdc++ -pthread -fuse-ld=lld"
+
+      - name: Verify ARM64 scalar binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -x stormphrax-android-arm64-scalar
+          file stormphrax-android-arm64-scalar
+          "$NDK_BIN/llvm-readelf" -h stormphrax-android-arm64-scalar | grep -E 'Class:|Machine:'
+
+      - name: Upload Android ARM64 scalar artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stormphrax-android-arm64-scalar
+          path: stormphrax-android-arm64-scalar
+          if-no-files-found: error
+
+      - name: Create prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-neon-scalar-${{ github.run_number }}
+          name: Stormphrax Android ARM64 NEON + Scalar ${{ github.run_number }}
+          prerelease: true
+          files: |
+            stormphrax-android-arm64
+            stormphrax-android-arm64-scalar
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
