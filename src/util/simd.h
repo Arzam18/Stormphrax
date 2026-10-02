@@ -32,8 +32,6 @@
     #include "simd/avx2.h"
 #elif SP_HAS_NEON
     #include "simd/neon.h"
-#elif defined(SP_SCALAR)
-    #include "simd/scalar.h"
 #else
     #error No supported SIMD extension found
 #endif
@@ -107,7 +105,7 @@ namespace stormphrax::util::simd {
     };
 
     template <typename T>
-    using PackedVector = typename PackedVectorImpl<T>::Type;
+    using PackedVector = typename PromotedVectorImpl<T>::Type;
 
     template <typename T>
     constexpr auto kChunkSize = sizeof(Vector<T>) / sizeof(T);
@@ -319,19 +317,6 @@ namespace stormphrax::util::simd {
     SP_ALWAYS_INLINE_NDEBUG inline auto dpbusd<i32>(Vector<i32> sum, Vector<u8> u, Vector<i8> i) {
         return impl::dpbusdI32(sum, u, i);
     }
-
-#if defined(SP_SCALAR)
-    // The L2 NNUE path passes the unsigned input bytes as a Vector<i32>
-    // created by set1<i32>() and relies on SIMD register reinterpretation.
-    // ScalarVector uses distinct C++ types, so provide a matching template
-    // overload for that call signature.
-    template <typename T>
-    SP_ALWAYS_INLINE_NDEBUG inline auto dpbusd(Vector<T> sum, Vector<i32> u, Vector<i8> i) = delete;
-    template <>
-    SP_ALWAYS_INLINE_NDEBUG inline auto dpbusd<i32>(Vector<i32> sum, Vector<i32> u, Vector<i8> i) {
-        return impl::dpbusdI32(sum, u, i);
-    }
-#endif
 
     template <typename T>
     SP_ALWAYS_INLINE_NDEBUG inline auto nonzeroMask(Vector<T> v) = delete;
