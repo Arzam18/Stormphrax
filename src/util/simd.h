@@ -32,6 +32,8 @@
     #include "simd/avx2.h"
 #elif SP_HAS_NEON
     #include "simd/neon.h"
+#elif defined(SP_SCALAR)
+    #include "simd/scalar.h"
 #else
     #error No supported SIMD extension found
 #endif
