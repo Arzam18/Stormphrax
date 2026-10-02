@@ -25,7 +25,12 @@
 
 #if SP_HAS_NEON
 
+     #ifdef USE_SIMDE
+	#include <arm_neon.h>
+	#include "simde.h"
+	#else
     #include <arm_neon.h>
+    #endif
 
 namespace stormphrax::util::simd {
     using VectorU8 = uint8x16_t;
@@ -258,6 +263,7 @@ namespace stormphrax::util::simd {
 
         SP_ALWAYS_INLINE_NDEBUG inline VectorI32 dpbusdI32(VectorI32 sum, VectorU8 u, VectorI8 i) {
             const auto i0 = vreinterpretq_u8_s8(u);
+
     #if SP_HAS_NEON_DOTPROD
             return vdotq_s32(sum, i0, i);
     #else
