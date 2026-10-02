@@ -1,4 +1,4 @@
-name: Build Stormphrax Android ARM64 NEON (8.0.0 human recipe)
+name: Build Stormphrax 8.0.3 Android ARM64 NEON - human SIMD reference
 
 on:
   workflow_dispatch:
@@ -46,15 +46,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ./tmp/permute-native "${EVALFILE:-$(cat network.txt).nnue}" \
-            "$(cat network.txt).nnue_permuted_native"
-          ls -lh "$(cat network.txt).nnue_permuted_native"
+          NET="$(cat network.txt)"
+          ./tmp/permute-native "${NET}.nnue" "${NET}.nnue_permuted_native"
+          ls -lh "${NET}.nnue_permuted_native"
 
-      - name: Generate single-translation-unit source
+      - name: Generate human-style single translation unit
         shell: bash
         run: |
           set -euo pipefail
-          cat > glob.cpp <<'EOF'
+          cat > glob.cpp <<'GLOB'
           #include "./src/main.cpp"
           #include "./src/uci/uci.cpp"
           #include "./src/core.cpp"
@@ -97,17 +97,15 @@ jobs:
           #include "./src/eval/nnue_state.cpp"
           #include "./src/eval/eval.cpp"
           #include "./src/uci/option.cpp"
-          EOF
+          GLOB
 
-      # This deliberately mirrors the known-good human Android 8.0.0
-      # compilation model. Only the source version and NNUE are 8.0.3.
-      - name: Build Stormphrax 8.0.3 Android ARM64 NEON
+      - name: Build Android ARM64 NEON using the human recipe
         shell: bash
         run: |
           set -euo pipefail
           NET="$(cat network.txt)"
           "$NDK_BIN/aarch64-linux-android21-clang++" \
-            -o stormphrax-android-arm64-human-recipe \
+            -o stormphrax-android-arm64 \
             glob.cpp \
             -Isrc -I3rdparty/fmt/include \
             -march=armv8.2-a+dotprod+fp+simd+crypto+crc \
@@ -123,19 +121,19 @@ jobs:
             -fno-rtti -fstrict-aliasing -fomit-frame-pointer \
             -s -fuse-ld=lld -MMD -MP -ffast-math \
             -funroll-loops -funsafe-math-optimizations \
-            -DSP_HAS_NEON -DSP_HAS_NEON_DOTPROD=1
-          test -x stormphrax-android-arm64-human-recipe
+            -DSP_HAS_NEON -DSP_HAS_NEON_DOTPROD
+          test -x stormphrax-android-arm64
 
-      - name: Verify ARM64 binary
+      - name: Verify ELF
         shell: bash
         run: |
           set -euo pipefail
-          file stormphrax-android-arm64-human-recipe
-          "$NDK_BIN/llvm-readelf" -h stormphrax-android-arm64-human-recipe | grep -E 'Class:|Machine:'
+          file stormphrax-android-arm64
+          "$NDK_BIN/llvm-readelf" -h stormphrax-android-arm64 | grep -E 'Class:|Machine:'
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: stormphrax-android-arm64-human-recipe
-          path: stormphrax-android-arm64-human-recipe
+          name: stormphrax-8.0.3-android-arm64-neon-human-simd-reference
+          path: stormphrax-android-arm64
           if-no-files-found: error
