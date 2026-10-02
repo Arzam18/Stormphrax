@@ -1,6 +1,6 @@
 /*
  * Stormphrax, a UCI chess engine
- * Copyright (C) 2026 Ciekce
+ * Copyright (C) 2025 Ciekce
  *
  * Stormphrax is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,105 +31,58 @@
     #endif
     #if !defined(SP_DISABLE_AVX512)
         #define SP_HAS_VNNI512 __AVX512VNNI__
-        #define SP_HAS_VBMI2 __AVX512VBMI2__
-        #define SP_HAS_VBMI __AVX512VBMI__
         #define SP_HAS_AVX512 (__AVX512F__ && (__AVX512BW__ || __AVX512VNNI__))
     #else
         #define SP_HAS_VNNI512 0
-        #define SP_HAS_VBMI2 0
-        #define SP_HAS_VBMI 0
         #define SP_HAS_AVX512 0
     #endif
     #define SP_HAS_VNNI256 0 // slowdown on any cpu that would use it
     #define SP_HAS_AVX2 __AVX2__
+    #define SP_HAS_POPCNT __POPCNT__
     #define SP_HAS_NEON __ARM_NEON
     #if !defined(SP_DISABLE_NEON_DOTPROD)
-        #define SP_HAS_NEON_DOTPROD __ARM_FEATURE_DOTPROD
+        #define SP_HAS_NEON_DOTPROD (__ARM_ARCH >= 8)
     #else
         #define SP_HAS_NEON_DOTPROD 0
     #endif
-#elif defined(SP_AVX512)
+#elif defined(SP_VNNI512)
     #define SP_HAS_BMI2 1
     #define SP_HAS_VNNI512 1
-    #define SP_HAS_VBMI2 1
-    #define SP_HAS_VBMI 1
+    #define SP_HAS_AVX512 1
+    #define SP_HAS_VNNI256 1
+    #define SP_HAS_AVX2 1
+    #define SP_HAS_POPCNT 1
+    #define SP_HAS_NEON 0
+    #define SP_HAS_NEON_DOTPROD 0
+#elif defined(SP_AVX512)
+    #define SP_HAS_BMI2 1
+    #define SP_HAS_VNNI512 0
     #define SP_HAS_AVX512 1
     #define SP_HAS_VNNI256 0
     #define SP_HAS_AVX2 1
+    #define SP_HAS_POPCNT 1
     #define SP_HAS_NEON 0
     #define SP_HAS_NEON_DOTPROD 0
 #elif defined(SP_AVX2_BMI2)
     #define SP_HAS_BMI2 1
     #define SP_HAS_VNNI512 0
-    #define SP_HAS_VBMI2 0
-    #define SP_HAS_VBMI 0
     #define SP_HAS_AVX512 0
     #define SP_HAS_VNNI256 0
     #define SP_HAS_AVX2 1
+    #define SP_HAS_POPCNT 1
     #define SP_HAS_NEON 0
     #define SP_HAS_NEON_DOTPROD 0
-#elif defined(SP_ZEN2)
+#elif defined(SP_AVX2)
     #define SP_HAS_BMI2 0
     #define SP_HAS_VNNI512 0
-    #define SP_HAS_VBMI2 0
-    #define SP_HAS_VBMI 0
     #define SP_HAS_AVX512 0
     #define SP_HAS_VNNI256 0
     #define SP_HAS_AVX2 1
+    #define SP_HAS_POPCNT 1
     #define SP_HAS_NEON 0
     #define SP_HAS_NEON_DOTPROD 0
-#elif defined(SP_SCALAR)
-    #define SP_HAS_BMI2 0
-    #define SP_HAS_VNNI512 0
-    #define SP_HAS_VBMI2 0
-    #define SP_HAS_VBMI 0
-    #define SP_HAS_AVX512 0
-    #define SP_HAS_VNNI256 0
-    #define SP_HAS_AVX2 0
-    #define SP_HAS_NEON 0
-    #define SP_HAS_NEON_DOTPROD 0
-#elif defined(SP_HAS_NEON)
-    // Explicit NEON feature selection, matching the known-good Android
-    // compilation model used for Stormphrax 8.0.0.
-    #define SP_HAS_BMI2 0
-    #define SP_HAS_VNNI512 0
-    #define SP_HAS_VBMI2 0
-    #define SP_HAS_VBMI 0
-    #define SP_HAS_AVX512 0
-    #define SP_HAS_VNNI256 0
-    #define SP_HAS_AVX2 0
-    #define SP_HAS_NEON 1
-    #ifndef SP_HAS_NEON_DOTPROD
-        #define SP_HAS_NEON_DOTPROD 0
-    #endif
-#elif defined(SP_ARM_NEON)
-    // Generic ARM64/NEON build. NEON is mandatory for AArch64; dot-product
-    // support is enabled only when the compiler target provides it.
-    #define SP_HAS_BMI2 0
-    #define SP_HAS_VNNI512 0
-    #define SP_HAS_VBMI2 0
-    #define SP_HAS_VBMI 0
-    #define SP_HAS_AVX512 0
-    #define SP_HAS_VNNI256 0
-    #define SP_HAS_AVX2 0
-    #define SP_HAS_NEON 1
-    #if !defined(SP_DISABLE_NEON_DOTPROD)
-        #define SP_HAS_NEON_DOTPROD __ARM_FEATURE_DOTPROD
-    #else
-        #define SP_HAS_NEON_DOTPROD 0
-    #endif
-#elif defined(SP_ARMV8_4)
-    #define SP_HAS_BMI2 0
-    #define SP_HAS_VNNI512 0
-    #define SP_HAS_VBMI2 0
-    #define SP_HAS_VBMI 0
-    #define SP_HAS_AVX512 0
-    #define SP_HAS_VNNI256 0
-    #define SP_HAS_AVX2 0
-    #define SP_HAS_NEON 1
-    #define SP_HAS_NEON_DOTPROD 1
 #else
-    #error no arch specified
+    ;
 #endif
 
 namespace stormphrax {
